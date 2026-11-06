@@ -60,7 +60,21 @@ public class PartyRepository {
     }
 
     public void markSeated(long id) {
-        jdbc.sql("UPDATE parties SET state = 'seated' WHERE id = ?").param(id).update();
+        jdbc.sql("UPDATE parties SET state = 'seated' WHERE id = ?")
+                .param(id)
+                .update();
+    }
+
+    public void markLeft(long id) {
+        jdbc.sql("UPDATE parties SET state = 'left' WHERE id = ?")
+                .param(id)
+                .update();
+    }
+
+    public void markCleared(long id) {
+        jdbc.sql("UPDATE parties SET state = 'cleared' WHERE id = ?")
+                .param(id)
+                .update();
     }
 
     /** The real wait, written once when the party is seated. */
