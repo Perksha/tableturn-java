@@ -1,5 +1,6 @@
 package com.tableturn.table;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,10 +14,17 @@ import org.springframework.stereotype.Repository;
 public class TableRepository {
 
     /**
-     * One tables row: its number, its seats, its section and the seating on it (null when none).
+     * One tables row: its number, its seats, its section and the seating on it - with that seating's party and the
+     * moment it sat down (all three null when the table has no seating).
      */
-    public record Row(String no, int seats, Section section, Long currentSeatingId) {
+    public record Row(long id, String no, int seats, Section section, Long currentSeatingId, Long partyId,
+                      Instant seatedAt) {
     }
+
+    private static final String SELECT = """
+            SELECT t.id, t.no, t.seats, t.section, t.current_seating_id, s.party_id, s.seated_at
+            FROM tables t LEFT JOIN seatings s ON s.id = t.current_seating_id
+            WHERE t.branch_id = ?""";
 
     private final JdbcClient jdbc;
 
@@ -28,17 +36,11 @@ public class TableRepository {
      * Every table of a branch, lowest number first.
      */
     public List<Row> all(long branchId) {
-        return jdbc.sql("SELECT no, seats, section, current_seating_id FROM tables WHERE branch_id = ? ORDER BY no")
-                .param(branchId)
-                .query(Row.class)
-                .list();
+        return jdbc.sql(SELECT + " ORDER BY t.no").param(branchId).query(Row.class).list();
     }
 
     public Optional<Row> one(long branchId, String no) {
-        return jdbc.sql("SELECT no, seats, section, current_seating_id FROM tables WHERE branch_id = ? AND no = ?")
-                .params(branchId, no)
-                .query(Row.class)
-                .optional();
+        return jdbc.sql(SELECT + " AND t.no = ?").params(branchId, no).query(Row.class).optional();
     }
 
     /**
@@ -49,6 +51,11 @@ public class TableRepository {
                 .param(branchId)
                 .query(Integer.class)
                 .single();
+    }
+
+    /** The table now holds this seating. */
+    public void seat(long tableId, long seatingId) {
+        jdbc.sql("UPDATE tables SET current_seating_id = ? WHERE id = ?").params(seatingId, tableId).update();
     }
 
     public void insert(long branchId, String no, int seats, Section section) {
